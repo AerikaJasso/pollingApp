@@ -20,53 +20,68 @@ form.addEventListener('submit', (e) => {
     e.preventDefault();
 });
 
-let dataPoints = [
-    { label: 'Democrat', y: 0 },
-    { label: 'Republican', y: 0 },
-    { label: 'Independent', y: 0 },
-    { label: 'Green Party', y: 0 },
-    { label: 'Libertarian', y: 0 },
-    { label: 'Other', y: 0 }
-];
+fetch('http://localhost:3000/poll')
+.then(res => res.json())
+.then(data => {
+    const votes = data.votes;
+    const totalVotes = votes.length;
+    // Count vote points for each party
+    const voteCounts = votes.reduce(
+        (acc, vote) => (
+            (acc[vote.party] = (acc[vote.party] || 0) + parseInt(vote.points)), acc
+        ),
+        {}
+    );
 
-const chartContainer = document.querySelector
-('#chartContainer');
+    let dataPoints = [
+        { label: 'Democrat', y: voteCounts.Democrat },
+        { label: 'Republican', y: voteCounts.Republican },
+        { label: 'Independent', y: voteCounts.Independent },
+        { label: 'Green', y: voteCounts.Green},
+        { label: 'Libertarian', y: voteCounts.Libertarian },
+        { label: 'Other', y: voteCounts.Other }
+    ];
 
-if(chartContainer) {
-    const chart = new CanvasJS.Chart('chartContainer', {
-        animationEnabled: true,
-        theme: 'theme1',
-        title: {
-            text: 'Results'
-        },
-        data: [
-            {
-                type: 'column',
-                dataPoints: dataPoints
-            }
-        ]
-    });
-    chart.render();
+    const chartContainer = document.querySelector
+        ('#chartContainer');
 
-    // Enable pusher logging - don't include this in production
-    Pusher.logToConsole = true;
-
-    let pusher = new Pusher('c12fbde6601da0630621', {
-        cluster: 'us2',
-        encrypted: true
-    });
-
-    let channel = pusher.subscribe('poll');
-    channel.bind('vote', function (data) {
-        // Add data to chart
-        dataPoints = dataPoints.map(x => {
-            if(x.label == data.party) {
-                x.y += data.points;
-                return x;
-            } else { 
-                return x;
-            }
+    if (chartContainer) {
+        const chart = new CanvasJS.Chart('chartContainer', {
+            animationEnabled: true,
+            theme: 'theme1',
+            title: {
+                text: `Total Votes: ${totalVotes}`
+            },
+            data: [
+                {
+                    type: 'column',
+                    dataPoints: dataPoints
+                }
+            ]
         });
         chart.render();
-    });
-}
+
+        // Enable pusher logging - don't include this in production
+        Pusher.logToConsole = true;
+
+        let pusher = new Pusher('c12fbde6601da0630621', {
+            cluster: 'us2',
+            encrypted: true
+        });
+
+        let channel = pusher.subscribe('poll');
+        channel.bind('vote', function (data) {
+            // Add data to chart
+            dataPoints = dataPoints.map(x => {
+                if (x.label == data.party) {
+                    x.y += data.points;
+                    return x;
+                } else {
+                    return x;
+                }
+            });
+            chart.render();
+        });
+    }
+});
+

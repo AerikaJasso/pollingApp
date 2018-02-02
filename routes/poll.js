@@ -1,29 +1,38 @@
 const express = require('express');
-router = express.Router();
+const router = express.Router();
+const mongoose = require('mongoose');
+const Vote = require('../models/Vote');
 
 const Pusher = require('pusher');
 
 var pusher = new Pusher({
-    appId: '467960',
-    key: 'c12fbde6601da0630621',
-    secret: 'c35edd3757b6e70792b2',
+    appId: 'yourID',
+    key: 'yourKey',
+    secret: 'yourSecret',
     cluster: 'us2',
     encrypted: true
 });
 
 router.get('/', (req, res) => {
-    res.send('Poll');
+    Vote.find().then(votes => res.json({success: true, votes: votes}));
 });
 
 router.post('/', (req, res) => {
-    pusher.trigger('poll', 'vote', {
-        // send the points
-        points: 1,
-        // send the object 
-        party: req.body.party 
-    });
+    
+    const newVote = {
+        party: req.body.party,
+        points: 1
+    }
 
-    return res.json({success: true, message: 'Thank you for voting'});
+    new Vote(newVote).save().then(vote => {
+        pusher.trigger('poll', 'vote', {
+            // send the points
+            points: parseInt(vote.points),
+            // send the object 
+            party: vote.party
+        });
+        return res.json({ success: true, message: 'Thank you for voting' });
+    });
 });
 
 module.exports = router;
